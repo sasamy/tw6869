@@ -67,10 +67,14 @@ static void tw6869_delayed_dma_on(struct work_struct *work)
 
 	spin_lock_irqsave(&dma->dev->rlock, flags);
 	if (tw_dma_active(dma) && !dma->low_power) {
-		if ((*dma->locked)(dma))
-			tw_dma_enable(dma);
-		else /* reschedule itself */
+		if ((*dma->locked)(dma)) {
+			tw_set(dma->dev, R32_DMA_CHANNEL_ENABLE, BIT(dma->id));
+			tw_set(dma->dev, R32_DMA_CMD, BIT(31) | BIT(dma->id));
+			dma->fld = 0;
+			dma->pb = 0;
+		} else { /* reschedule itself */
 			mod_delayed_work(system_wq, &dma->hw_on, dma->delay);
+		}
 	}
 	spin_unlock_irqrestore(&dma->dev->rlock, flags);
 }
