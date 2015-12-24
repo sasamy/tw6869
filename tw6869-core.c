@@ -72,6 +72,8 @@ static void tw6869_delayed_dma_on(struct work_struct *work)
 			tw_set(dma->dev, R32_DMA_CMD, BIT(31) | BIT(dma->id));
 			dma->fld = 0;
 			dma->pb = 0;
+			if (!tw_dma_is_on(dma))
+				tw_err(dma->dev, "DMA %u: failed ON\n", dma->id);
 		} else { /* reschedule itself */
 			mod_delayed_work(system_wq, &dma->hw_on, dma->delay);
 		}
