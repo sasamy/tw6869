@@ -840,9 +840,10 @@ static int tw6869_vch_register(struct tw6869_vch *vch)
 	}
 	v4l2_ctrl_handler_setup(hdl);
 
-	/* Default settings */
+	/* Default settings (NTSC) */
 	vch->fps = 30;
 	vch->std = V4L2_STD_525_60;
+	tw_write(vch->dma.dev, R8_STANDARD_SELECTION(vch->dma.id), 0);
 	vch->format.pixelformat = V4L2_PIX_FMT_UYVY;
 	tw6869_vch_fill_pix_format(vch, &vch->format);
 
@@ -947,6 +948,8 @@ int tw6869_video_register(struct tw6869_dev *dev)
 			tw6869_video_unregister(dev);
 			return ret;
 		}
+		dev_info(&pdev->dev, "vch%i registered as %s\n", i,
+			 video_device_node_name(&vch->vdev));
 
 		vch->dma.srst = tw6869_vch_dma_srst;
 		vch->dma.ctrl = tw6869_vch_dma_ctrl;
