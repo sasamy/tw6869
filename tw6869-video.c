@@ -225,11 +225,10 @@ static void tw6869_vch_dma_cfg(struct tw6869_dma *dma)
 	struct v4l2_pix_format *pix = &vch->format;
 	unsigned int cfg;
 
-	BUG_ON(to_tw6869_std(vch->std) < 0);
-	BUG_ON(to_tw6869_pixformat(pix->pixelformat) < 0);
 	BUG_ON(!pix->width);
 
-	tw_write(dma->dev, R8_STANDARD_SELECTION(dma->id), vch->std);
+	cfg = to_tw6869_std(vch->std);
+	tw_write(dma->dev, R8_STANDARD_SELECTION(dma->id), cfg);
 
 	cfg = BIT(31);
 	cfg |= ((vch->std & V4L2_STD_625_50 ? 288 : 240) & 0x1FF) << 16;
