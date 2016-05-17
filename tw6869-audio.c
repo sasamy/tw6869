@@ -292,17 +292,11 @@ static int tw6869_ach_register(struct tw6869_ach *ach)
 	struct snd_pcm *pcm;
 	int ret;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 15, 0)
 	ret = snd_card_new(&pdev->dev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1,
 		THIS_MODULE, 0, &card);
-#else
-	ret = snd_card_create(SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1,
-		THIS_MODULE, 0, &card);
-#endif
 	if (ret < 0)
 		return ret;
 
-	snd_card_set_dev(card, &pdev->dev);
 	ach->snd_card = card;
 
 	strlcpy(card->driver, KBUILD_MODNAME, sizeof(card->driver));

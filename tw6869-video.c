@@ -389,8 +389,9 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 	return 0;
 }
 
-static void tw6869_vch_stop(struct tw6869_vch *vch)
+static void stop_streaming(struct vb2_queue *vq)
 {
+	struct tw6869_vch *vch = vb2_get_drv_priv(vq);
 	struct tw6869_dma *dma = &vch->dma;
 	struct tw6869_buf *buf, *node;
 	unsigned long flags;
@@ -415,23 +416,6 @@ static void tw6869_vch_stop(struct tw6869_vch *vch)
 
 	cancel_delayed_work_sync(&dma->hw_on);
 }
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0)
-static void stop_streaming(struct vb2_queue *vq)
-{
-	struct tw6869_vch *vch = vb2_get_drv_priv(vq);
-
-	tw6869_vch_stop(vch);
-}
-#else
-static int stop_streaming(struct vb2_queue *vq)
-{
-	struct tw6869_vch *vch = vb2_get_drv_priv(vq);
-
-	tw6869_vch_stop(vch);
-	return 0;
-}
-#endif
 
 static struct vb2_ops tw6869_qops = {
 	.queue_setup		= queue_setup,
@@ -908,13 +892,9 @@ static int tw6869_vch_register(struct tw6869_vch *vch)
 	q->buf_struct_size = sizeof(struct tw6869_buf);
 	q->ops = &tw6869_qops;
 	q->mem_ops = &vb2_dma_contig_memops;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 15, 0)
 	q->min_buffers_needed = TW_BUF_MAX;
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-#else
-	q->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-#endif
-	q->gfp_flags = __GFP_DMA32;
+	q->gfp_flags = GFP_DMA32;
 	q->lock = &vch->mlock;
 	ret = vb2_queue_init(q);
 	if (ret)
