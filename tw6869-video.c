@@ -39,6 +39,8 @@ static void tw6869_vch_dma_ctrl(struct tw6869_dma *dma)
 	tw_write(dma->dev, R8_SAT_U_CTRL(dma->id), vch->saturation);
 	tw_write(dma->dev, R8_SAT_V_CTRL(dma->id), vch->saturation);
 	tw_write(dma->dev, R8_HUE_CTRL(dma->id), vch->hue);
+	tw_write(dma->dev, R32_MD_CONF(dma->id), vch->md_mode ?
+		(0x7 << 18) | (vch->md_threshold & 0x3FFFF) : 0);
 }
 
 static int to_tw6869_pixformat(unsigned int pixelformat)
@@ -97,6 +99,36 @@ static v4l2_std_id to_v4l2_std(unsigned int tw_std)
 	}
 }
 
+static void tw6869_motion_detection_event(struct tw6869_vch *vch)
+{
+	struct tw6869_dma *dma = &vch->dma;
+	int count = 12;
+	unsigned int md;
+
+	/* Reset read pointer */
+	tw_write(dma->dev, R32_MD_INIT(dma->id), 0x1);
+	/* Discard the first slice */
+	tw_read(dma->dev, R32_MD_MAPO(dma->id));
+
+	while (--count >= 0) {
+		md = tw_read(dma->dev, R32_MD_MAPO(dma->id));
+		if (md & 0x7FFFFF) {
+			struct v4l2_event ev = {
+				.type = V4L2_EVENT_MOTION_DET,
+				.u.motion_det = {
+					.flags = V4L2_EVENT_MD_FL_HAVE_FRAME_SEQ,
+					.frame_sequence = vch->sequence,
+					.region_mask = 0x1,
+				},
+			};
+			v4l2_event_queue(&vch->vdev, &ev);
+			tw_dbg(dma->dev, "vch%u seq=%u\n",
+				ID2CH(dma->id), vch->sequence);
+			break;
+		}
+	}
+}
+
 static inline int tw_vch_frame_mode(struct tw6869_vch *vch)
 {
 	return vch->format.height > 288;
@@ -123,6 +155,8 @@ static void tw6869_vch_dma_frame_isr(struct tw6869_dma *dma)
 		v4l2_get_timestamp(&done->vb.v4l2_buf.timestamp);
 		done->vb.v4l2_buf.sequence = vch->sequence++;
 		done->vb.v4l2_buf.field = V4L2_FIELD_INTERLACED;
+		if (vch->md_mode)
+			tw6869_motion_detection_event(vch);
 		vb2_buffer_done(&done->vb, VB2_BUF_STATE_DONE);
 	} else {
 		tw_err(dma->dev, "vch%u NOBUF seq=%u dcount=%u\n",
@@ -154,6 +188,8 @@ static void tw6869_vch_dma_field_isr(struct tw6869_dma *dma)
 		v4l2_get_timestamp(&done->vb.v4l2_buf.timestamp);
 		done->vb.v4l2_buf.sequence = vch->sequence++;
 		done->vb.v4l2_buf.field = V4L2_FIELD_BOTTOM;
+		if (vch->md_mode)
+			tw6869_motion_detection_event(vch);
 		vb2_buffer_done(&done->vb, VB2_BUF_STATE_DONE);
 	} else {
 		tw_err(dma->dev, "vch%u NOBUF seq=%u dcount=%u\n",
@@ -784,6 +820,15 @@ static int tw6869_s_ctrl(struct v4l2_ctrl *ctrl)
 		vch->hue = ctrl->val;
 		tw_write(dma->dev, R8_HUE_CTRL(dma->id), vch->hue);
 		break;
+	case V4L2_CID_DETECT_MD_MODE:
+		vch->md_mode = ctrl->val;
+		/* Active field 0, block size 32x32 */
+		tw_write(dma->dev, R32_MD_CONF(dma->id), vch->md_mode ?
+			(0x5 << 18) | (vch->md_threshold & 0x3FFFF) : 0);
+		break;
+	case V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD:
+		vch->md_threshold = ctrl->val;
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -792,6 +837,19 @@ static int tw6869_s_ctrl(struct v4l2_ctrl *ctrl)
 	return ret;
 }
 
+static int tw6869_subscribe_event(struct v4l2_fh *fh,
+		const struct v4l2_event_subscription *sub)
+{
+	switch (sub->type) {
+	case V4L2_EVENT_CTRL:
+		return v4l2_ctrl_subscribe_event(fh, sub);
+	case V4L2_EVENT_MOTION_DET:
+		/* Allow for up to 30 events (1 second for NTSC) */
+		return v4l2_event_subscribe(fh, sub, 30, NULL);
+	default:
+		return -EINVAL;
+	}
+}
 /**
  * File operations for the device
  */
@@ -838,7 +896,7 @@ static const struct v4l2_ioctl_ops tw6869_ioctl_ops = {
 	.vidioc_streamoff = vb2_ioctl_streamoff,
 
 	.vidioc_log_status = v4l2_ctrl_log_status,
-	.vidioc_subscribe_event = v4l2_ctrl_subscribe_event,
+	.vidioc_subscribe_event = tw6869_subscribe_event,
 	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
 };
 
@@ -870,6 +928,12 @@ static int tw6869_vch_register(struct tw6869_vch *vch)
 		  V4L2_CID_SATURATION, 0, 255, 1, 128);
 	v4l2_ctrl_new_std(hdl, &tw6869_ctrl_ops,
 		  V4L2_CID_HUE, -128, 127, 1, 0);
+	v4l2_ctrl_new_std_menu(hdl, &tw6869_ctrl_ops,
+		  V4L2_CID_DETECT_MD_MODE,
+		  V4L2_DETECT_MD_MODE_GLOBAL, 0,
+		  V4L2_DETECT_MD_MODE_DISABLED);
+	v4l2_ctrl_new_std(hdl, &tw6869_ctrl_ops,
+		  V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD, 0, 0x3FFFF, 1, 0x10410);
 	if (hdl->error) {
 		ret = hdl->error;
 		return ret;

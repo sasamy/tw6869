@@ -125,6 +125,9 @@
 #define R32_VIDEO_FIELD_CTRL(id)   RADDR(0x39 + ID2CH(id))
 #define R32_HSCALER_CTRL(id)       RADDR(0x42 + ID2CH(id))
 #define R32_VIDEO_SIZE(id)         RADDR(0x4A + ID2CH(id))
+#define R32_MD_CONF(id)            RADDR(0x60 + ID2CH(id))
+#define R32_MD_INIT(id)            RADDR(0x68 + ID2CH(id))
+#define R32_MD_MAPO(id)            RADDR(0x70 + ID2CH(id))
 #define R32_VDMA_P_ADDR(id)        RADDR(0x80 + ID2CH(id) * 0x8)
 #define R32_VDMA_WHP(id)           RADDR(0x81 + ID2CH(id) * 0x8)
 #define R32_VDMA_B_ADDR(id)        RADDR(0x82 + ID2CH(id) * 0x8)
@@ -225,6 +228,8 @@ struct tw6869_dma {
  * @sharpness: control state
  * @saturation: control state
  * @hue: control state
+ * @md_mode: motion detection state (enabled | disabled)
+ * @md_threshold: motion detection threshold
  */
 struct tw6869_vch {
 	struct tw6869_dma dma;
@@ -244,6 +249,8 @@ struct tw6869_vch {
 	unsigned int sharpness;
 	unsigned int saturation;
 	unsigned int hue;
+	unsigned int md_mode;
+	unsigned int md_threshold;
 };
 
 /**
