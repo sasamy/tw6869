@@ -40,7 +40,7 @@ static void tw6869_vch_dma_ctrl(struct tw6869_dma *dma)
 	tw_write(dma->dev, R8_SAT_V_CTRL(dma->id), vch->saturation);
 	tw_write(dma->dev, R8_HUE_CTRL(dma->id), vch->hue);
 	tw_write(dma->dev, R32_MD_CONF(dma->id), vch->md_mode ?
-		(0x7 << 18) | (vch->md_threshold & 0x3FFFF) : 0);
+		(0x5 << 18) | (vch->md_threshold & 0x3FFFF) : 0);
 }
 
 static int to_tw6869_pixformat(unsigned int pixelformat)
