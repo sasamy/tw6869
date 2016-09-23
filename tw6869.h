@@ -428,6 +428,31 @@
 #define R32_EP_REG_ADDR_SHIFT                       0
 #define R32_EP_REG_ADDR_MASK                        GENMASK(12, 0)
 
+
+/* motion detection default configuration */
+#define R32_MD_CONF_MD_TRESHOLD_DEFAULT             0x10410
+#define R32_MD_CONF_MD_MODE_DEFAULT                 0x1
+#define R32_MD_CONF_MD_ACT_FLD_DEFAULT              0x0
+#define R32_MD_CONF_MD_ENABLE_DEFAULT               0x0
+#define R32_MD_CONF_MD_TSCALE_DEFAULT               0x0
+
+#define R32_MD_CONF_DEFAULT (                   \
+		((R32_MD_CONF_MD_TRESHOLD_DEFAULT       \
+			& R32_MD_CONF_MD_TRESHOLD_MASK  )   \
+			<< R32_MD_CONF_MD_TRESHOLD_SHIFT) | \
+		((R32_MD_CONF_MD_MODE_DEFAULT           \
+			& R32_MD_CONF_MD_MODE_MASK      )   \
+			<< R32_MD_CONF_MD_MODE_SHIFT    ) | \
+		((R32_MD_CONF_MD_ACT_FLD_DEFAULT        \
+			& R32_MD_CONF_MD_ACT_FLD_MASK   )   \
+			<< R32_MD_CONF_MD_ACT_FLD_SHIFT ) | \
+		((R32_MD_CONF_MD_ENABLE_DEFAULT         \
+			& R32_MD_CONF_MD_ENABLE_MASK    )   \
+			<< R32_MD_CONF_MD_ENABLE_SHIFT  ) | \
+		((R32_MD_CONF_MD_TSCALE_DEFAULT         \
+			& R32_MD_CONF_MD_TSCALE_MASK    )   \
+			<< R32_MD_CONF_MD_TSCALE_SHIFT  ) )
+
 /**
  * struct tw6869_buf - instance of one DMA buffer
  */
