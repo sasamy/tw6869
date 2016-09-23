@@ -368,6 +368,16 @@
 #define R32_MD_CONF_MD_TSCALE_SHIFT                 21
 #define R32_MD_CONF_MD_TSCALE_MASK                  GENMASK(3, 0)
 
+#define R32_MD_CONF_MASK (                      \
+		(R32_MD_CONF_MD_TRESHOLD_MASK           \
+			<< R32_MD_CONF_MD_TRESHOLD_SHIFT) | \
+		(R32_MD_CONF_MD_MODE_MASK               \
+			<< R32_MD_CONF_MD_MODE_SHIFT    ) | \
+		(R32_MD_CONF_MD_ACT_FLD_MASK            \
+			<< R32_MD_CONF_MD_ACT_FLD_SHIFT ) | \
+		(R32_MD_CONF_MD_TSCALE_MASK             \
+			<< R32_MD_CONF_MD_TSCALE_SHIFT  ) )
+
 #define R32_MD_INIT_SHIFT                           0
 #define R32_MD_INIT_MASK                            GENMASK(1, 0)
 
