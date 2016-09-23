@@ -158,7 +158,7 @@ static void tw6869_vch_dma_frame_isr(struct tw6869_dma *dma)
 		v4l2_get_timestamp(&done->vb.v4l2_buf.timestamp);
 		done->vb.v4l2_buf.sequence = vch->sequence++;
 		done->vb.v4l2_buf.field = V4L2_FIELD_INTERLACED;
-		if (vch->md.mode != V4L2_DETECT_MD_MODE_DISABLED)
+		if (!dma->lost && vch->md.mode != V4L2_DETECT_MD_MODE_DISABLED)
 			tw6869_motion_detection_event(vch);
 		vb2_buffer_done(&done->vb, VB2_BUF_STATE_DONE);
 	} else {
@@ -191,7 +191,7 @@ static void tw6869_vch_dma_field_isr(struct tw6869_dma *dma)
 		v4l2_get_timestamp(&done->vb.v4l2_buf.timestamp);
 		done->vb.v4l2_buf.sequence = vch->sequence++;
 		done->vb.v4l2_buf.field = V4L2_FIELD_BOTTOM;
-		if (vch->md.mode != V4L2_DETECT_MD_MODE_DISABLED)
+		if (!dma->lost && vch->md.mode != V4L2_DETECT_MD_MODE_DISABLED)
 			tw6869_motion_detection_event(vch);
 		vb2_buffer_done(&done->vb, VB2_BUF_STATE_DONE);
 	} else {
