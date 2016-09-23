@@ -39,8 +39,7 @@ static void tw6869_vch_dma_ctrl(struct tw6869_dma *dma)
 	tw_write(dma->dev, R8_SAT_U_CTRL(dma->id), vch->saturation);
 	tw_write(dma->dev, R8_SAT_V_CTRL(dma->id), vch->saturation);
 	tw_write(dma->dev, R8_HUE_CTRL(dma->id), vch->hue);
-	tw_write(dma->dev, R32_MD_CONF(dma->id), vch->md_mode ?
-		(0x5 << 18) | (vch->md_threshold & 0x3FFFF) : 0);
+	tw_write(dma->dev, R32_MD_CONF(dma->id), vch->md.conf);
 }
 
 static int to_tw6869_pixformat(unsigned int pixelformat)
@@ -155,7 +154,7 @@ static void tw6869_vch_dma_frame_isr(struct tw6869_dma *dma)
 		v4l2_get_timestamp(&done->vb.v4l2_buf.timestamp);
 		done->vb.v4l2_buf.sequence = vch->sequence++;
 		done->vb.v4l2_buf.field = V4L2_FIELD_INTERLACED;
-		if (vch->md_mode)
+		if (vch->md.mode != V4L2_DETECT_MD_MODE_DISABLED)
 			tw6869_motion_detection_event(vch);
 		vb2_buffer_done(&done->vb, VB2_BUF_STATE_DONE);
 	} else {
@@ -188,7 +187,7 @@ static void tw6869_vch_dma_field_isr(struct tw6869_dma *dma)
 		v4l2_get_timestamp(&done->vb.v4l2_buf.timestamp);
 		done->vb.v4l2_buf.sequence = vch->sequence++;
 		done->vb.v4l2_buf.field = V4L2_FIELD_BOTTOM;
-		if (vch->md_mode)
+		if (vch->md.mode != V4L2_DETECT_MD_MODE_DISABLED)
 			tw6869_motion_detection_event(vch);
 		vb2_buffer_done(&done->vb, VB2_BUF_STATE_DONE);
 	} else {
@@ -821,13 +820,33 @@ static int tw6869_s_ctrl(struct v4l2_ctrl *ctrl)
 		tw_write(dma->dev, R8_HUE_CTRL(dma->id), vch->hue);
 		break;
 	case V4L2_CID_DETECT_MD_MODE:
-		vch->md_mode = ctrl->val;
-		/* Active field 0, block size 32x32 */
-		tw_write(dma->dev, R32_MD_CONF(dma->id), vch->md_mode ?
-			(0x5 << 18) | (vch->md_threshold & 0x3FFFF) : 0);
+		if (vch->md.mode == ctrl->val)
+			break;
+		if (ctrl->val == V4L2_DETECT_MD_MODE_DISABLED) {
+			/* clear enable bit */
+			vch->md.conf &= ~BIT(R32_MD_CONF_MD_ENABLE_SHIFT);
+		} else if (ctrl->val == V4L2_DETECT_MD_MODE_GLOBAL) {
+			/* set enable bit */
+			vch->md.conf |= BIT(R32_MD_CONF_MD_ENABLE_SHIFT);
+		} else {
+			tw_err(dma->dev, "motion detection supported modes: "
+							"global threshold\n");
+			break;
+		}
+		vch->md.mode = ctrl->val;
+		tw_write(dma->dev, R32_MD_CONF(dma->id), vch->md.conf);
 		break;
 	case V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD:
-		vch->md_threshold = ctrl->val;
+		/* save enable bit */
+		vch->md.conf &= BIT(R32_MD_CONF_MD_ENABLE_SHIFT);
+		vch->md.conf |= ctrl->val & R32_MD_CONF_MASK;
+		tw_write(dma->dev, R32_MD_CONF(dma->id), vch->md.conf);
+		break;
+	case V4L2_CID_DETECT_MD_THRESHOLD_GRID:
+		tw_err(dma->dev, "motion detection threshold grid mode unsupported\n");
+		break;
+	case V4L2_CID_DETECT_MD_REGION_GRID:
+		tw_err(dma->dev, "motion detection region grid mode unsupported\n");
 		break;
 	default:
 		ret = -EINVAL;
@@ -933,7 +952,8 @@ static int tw6869_vch_register(struct tw6869_vch *vch)
 		  V4L2_DETECT_MD_MODE_GLOBAL, 0,
 		  V4L2_DETECT_MD_MODE_DISABLED);
 	v4l2_ctrl_new_std(hdl, &tw6869_ctrl_ops,
-		  V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD, 0, 0x3FFFF, 1, 0x10410);
+		  V4L2_CID_DETECT_MD_GLOBAL_THRESHOLD, 0,
+		  R32_MD_CONF_MASK, 1, R32_MD_CONF_DEFAULT);
 	if (hdl->error) {
 		ret = hdl->error;
 		return ret;
@@ -945,6 +965,10 @@ static int tw6869_vch_register(struct tw6869_vch *vch)
 	vch->fps = (vch->std & V4L2_STD_625_50) ? 25 : 30;
 	vch->format.pixelformat = V4L2_PIX_FMT_UYVY;
 	tw6869_vch_fill_pix_format(vch, &vch->format);
+
+	/* Disable motion detection */
+	vch->md.mode = V4L2_DETECT_MD_MODE_DISABLED;
+	vch->md.conf = R32_MD_CONF_DEFAULT;
 
 	INIT_LIST_HEAD(&vch->buf_list);
 	mutex_init(&vch->mlock);

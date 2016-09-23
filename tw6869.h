@@ -454,6 +454,16 @@
 			<< R32_MD_CONF_MD_TSCALE_SHIFT  ) )
 
 /**
+ * struct tw6869_md - instance of motion detection
+ * @mode: support disabled or global threshold mode only
+ * @conf: register value include threshold, block size, active field, tscale
+ */
+struct tw6869_md {
+	enum v4l2_detect_md_mode mode;
+	unsigned int conf;
+};
+
+/**
  * struct tw6869_buf - instance of one DMA buffer
  */
 struct tw6869_buf {
@@ -511,6 +521,7 @@ struct tw6869_dma {
  * @buf_list: list of buffers queued for DMA
  * @hdl: handler for control framework
  * @format: pixel format
+ * @md: motion detection
  * @std: video standard (e.g. PAL/NTSC)
  * @input: input line for video signal
  * @sequence: frame sequence counter
@@ -521,8 +532,6 @@ struct tw6869_dma {
  * @sharpness: control state
  * @saturation: control state
  * @hue: control state
- * @md_mode: motion detection state (enabled | disabled)
- * @md_threshold: motion detection threshold
  */
 struct tw6869_vch {
 	struct tw6869_dma dma;
@@ -532,6 +541,7 @@ struct tw6869_vch {
 	struct list_head buf_list;
 	struct v4l2_ctrl_handler hdl;
 	struct v4l2_pix_format format;
+	struct tw6869_md md;
 	v4l2_std_id std;
 	unsigned int input;
 	unsigned int sequence;
@@ -542,8 +552,6 @@ struct tw6869_vch {
 	unsigned int sharpness;
 	unsigned int saturation;
 	unsigned int hue;
-	unsigned int md_mode;
-	unsigned int md_threshold;
 };
 
 /**
