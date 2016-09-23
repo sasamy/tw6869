@@ -102,16 +102,19 @@ static void tw6869_motion_detection_event(struct tw6869_vch *vch)
 {
 	struct tw6869_dma *dma = &vch->dma;
 	int count = 12;
-	unsigned int md;
+	unsigned int md_prev, md_next;
 
 	/* Reset read pointer */
 	tw_write(dma->dev, R32_MD_INIT(dma->id), 0x1);
+
 	/* Discard the first slice */
 	tw_read(dma->dev, R32_MD_MAPO(dma->id));
 
+	md_prev = tw_read(dma->dev, R32_MD_MAPO(dma->id));
+
 	while (--count >= 0) {
-		md = tw_read(dma->dev, R32_MD_MAPO(dma->id));
-		if (md & 0x7FFFFF) {
+		md_next = tw_read(dma->dev, R32_MD_MAPO(dma->id));
+		if ((md_prev ^ md_next) & R32_MD_MAPO_MASK) {
 			struct v4l2_event ev = {
 				.type = V4L2_EVENT_MOTION_DET,
 				.u.motion_det = {
@@ -125,6 +128,7 @@ static void tw6869_motion_detection_event(struct tw6869_vch *vch)
 				ID2CH(dma->id), vch->sequence);
 			break;
 		}
+		md_prev = md_next;
 	}
 }
 
