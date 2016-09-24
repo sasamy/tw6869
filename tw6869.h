@@ -100,6 +100,10 @@
 #define ID2CH(id)                  ((id) & 0x7)
 #define ID2SC(id)                  ((id) & 0x3)
 #define GROUP(id)                  (((id) & 0x4) * 0x40)
+#define ID2DMACH8(id)              ((id) & 0x7)
+#define ID2DMACH16(id)             ((id) & 0xf)
+#define ID2DMACH17(id)             (((id) & 0x10) | ((id) & 0xf))
+#define ID2YUVGEN(id)              ((id) & 0x7)
 
 /**
  * Register definitions
@@ -108,6 +112,7 @@
 #define R32_PB_STATUS              RADDR(0x01)
 #define R32_DMA_CMD                RADDR(0x02)
 #define R32_FIFO_STATUS            RADDR(0x03)
+#define R32_VIDEO_CHANNEL_ID       RADDR(0x04)
 #define R32_VIDEO_PARSER_STATUS    RADDR(0x05)
 #define R32_SYS_SOFT_RST           RADDR(0x06)
 #define R32_DMA_CHANNEL_ENABLE     RADDR(0x0A)
@@ -122,9 +127,12 @@
 #define R32_AUDIO_CONTROL1         RADDR(0x2C)
 #define R32_AUDIO_CONTROL2         RADDR(0x2D)
 #define R32_PHASE_REF              RADDR(0x2E)
+#define R32_INTL_HBAR_CTRL(id)     RADDR(0x30 + ID2CH(id))
+#define R32_AUDIO_CONTROL3         RADDR(0x38)
 #define R32_VIDEO_FIELD_CTRL(id)   RADDR(0x39 + ID2CH(id))
 #define R32_HSCALER_CTRL(id)       RADDR(0x42 + ID2CH(id))
 #define R32_VIDEO_SIZE(id)         RADDR(0x4A + ID2CH(id))
+#define R32_VIDEO_SIZE_F2(id)      RADDR(0x52 + ID2CH(id))
 #define R32_MD_CONF(id)            RADDR(0x60 + ID2CH(id))
 #define R32_MD_INIT(id)            RADDR(0x68 + ID2CH(id))
 #define R32_MD_MAPO(id)            RADDR(0x70 + ID2CH(id))
@@ -134,6 +142,18 @@
 #define R32_VDMA_F2_P_ADDR(id)     RADDR(0x84 + ID2CH(id) * 0x8)
 #define R32_VDMA_F2_WHP(id)        RADDR(0x85 + ID2CH(id) * 0x8)
 #define R32_VDMA_F2_B_ADDR(id)     RADDR(0x86 + ID2CH(id) * 0x8)
+#define R32_RG_NR_CTRL(id)         RADDR(0xC8 + ID2CH(id))
+#define R32_PIN_CFG_CTRL           RADDR(0xFB)
+#define R32_DBGPORT_CTRL           RADDR(0xFC)
+#define R32_EP_REG_ADDR            RADDR(0xFE)
+#define R32_EP_REG_DATA            RADDR(0xFF)
+
+#define R32_DMA_PAGE_TABLE_ADDR(n,id)   RADDR((ID2CH(id)                     \
+                                              ? (0xD0 + (ID2CH(id) - 1) * 2) \
+                                              : 0x08)                        \
+                                            + ((n) & 0x1))
+#define R32_DMA_PAGE_TABLE0_ADDR(id)    R32_DMA_PAGE_TABLE_ADDR(0,(id))
+#define R32_DMA_PAGE_TABLE1_ADDR(id)    R32_DMA_PAGE_TABLE_ADDR(1,(id))
 
 /* BIT[31:8] are hardwired to 0 in all registers */
 #define R8_VIDEO_STATUS(id)        RADDR(0x100 + GROUP(id) + ID2SC(id) * 0x10)
@@ -153,12 +173,295 @@
 #define R8_VERTICAL_SCALING(id)    RADDR(0x144 + GROUP(id) + ID2SC(id) * 0x10)
 #define R8_SCALING_HIGH(id)        RADDR(0x145 + GROUP(id) + ID2SC(id) * 0x10)
 #define R8_HORIZONTAL_SCALING(id)  RADDR(0x146 + GROUP(id) + ID2SC(id) * 0x10)
+
+#define R8_F2CROPPING_CONTROL(id)    RADDR(0x147 + GROUP(id) + ID2SC(id) * 0x10)
+#define R8_F2VERTICAL_DELAY(id)      RADDR(0x148 + GROUP(id) + ID2SC(id) * 0x10)
+#define R8_F2VERTICAL_ACTIVE(id)     RADDR(0x149 + GROUP(id) + ID2SC(id) * 0x10)
+#define R8_F2HORIZONTAL_DELAY(id)    RADDR(0x14A + GROUP(id) + ID2SC(id) * 0x10)
+#define R8_F2HORIZONTAL_ACTIVE(id)   RADDR(0x14B + GROUP(id) + ID2SC(id) * 0x10)
+#define R8_F2VERTICAL_SCALING(id)    RADDR(0x14C + GROUP(id) + ID2SC(id) * 0x10)
+#define R8_F2SCALING_HIGH(id)        RADDR(0x14D + GROUP(id) + ID2SC(id) * 0x10)
+#define R8_F2HORIZONTAL_SCALING(id)  RADDR(0x14E + GROUP(id) + ID2SC(id) * 0x10)
+#define R8_F2CNT(id)                 RADDR(0x14F + GROUP(id) + ID2SC(id) * 0x10)
+
 #define R8_AVSRST(id)              RADDR(0x180 + GROUP(id))
 #define R8_VERTICAL_CONTROL1(id)   RADDR(0x18F + GROUP(id))
 #define R8_MISC_CONTROL1(id)       RADDR(0x194 + GROUP(id))
 #define R8_MISC_CONTROL2(id)       RADDR(0x196 + GROUP(id))
 #define R8_ANALOG_PWR_DOWN(id)     RADDR(0x1CE + GROUP(id))
 #define R8_AIGAIN_CTRL(id)         RADDR(0x1D0 + GROUP(id) + ID2SC(id))
+
+/*
+ * Registers shifts and masks
+ */
+#define R32_INT_STATUS_INTSTA_DMA_SHIFT(id)             (0 + ID2DMACH16(id))
+#define R32_INT_STATUS_INTSTA_DMA_MASK                  GENMASK(1, 0)
+#define R32_INT_STATUS_DMA_TOUT_SHIFT                   17
+#define R32_INT_STATUS_DMA_TOUT_MASK                    GENMASK(1, 0)
+#define R32_INT_STATUS_BAD_FMT_SHIFT(id)                (24 + ID2CH(id))
+#define R32_INT_STATUS_BAD_FMT_MASK                     GENMASK(1, 0)
+
+#define R32_PB_STATUS_PBFLAGS_DMA_SHIFT(ch)             (0 + ID2DMACH16(id))
+#define R32_PB_STATUS_PBFLAGS_DMA_MASK                  GENMASK(1, 0)
+#define R32_PB_STATUS_FFLAGS_DMA_SHIFT(id)              (24 + ID2DMACH8(id))
+#define R32_PB_STATUS_FFLAGS_DMA_MASK                   GENMASK(1, 0)
+
+#define R32_DMA_CMD_RESET_DMA_SHIFT(id)                 (0 + ID2DMACH17(id))
+#define R32_DMA_CMD_RESET_DMA_MASK                      GENMASK(1, 0)
+#define R32_DMA_CMD_BOND_OPT_SHIFT                      29
+#define R32_DMA_CMD_BOND_OPT_MASK                       GENMASK(2, 0)
+#define R32_DMA_CMD_DMA_ENABLE_SHIFT                    31
+#define R32_DMA_CMD_DMA_ENABLE_MASK                     GENMASK(1, 0)
+
+#define R32_FIFO_STATUS_VDLOSS_SHIFT(id)                (0 + ID2CH(id))
+#define R32_FIFO_STATUS_VDLOSS_MASK                     GENMASK(1, 0)
+#define R32_FIFO_STATUS_BAD_PTR_SHIFT(id)               (16 + ID2DMACH8(id))
+#define R32_FIFO_STATUS_BAD_PTR_MASK                    GENMASK(1, 0)
+#define R32_FIFO_STATUS_BAD_FMT_SHIFT(id)               (24 + ID2DMACH8(id))
+#define R32_FIFO_STATUS_BAD_FMT_MASK                    GENMASK(1, 0)
+
+#define R32_VIDEO_CHANNEL_ID_SHIFT(id)                  (3 * ID2CH(id))
+#define R32_VIDEO_CHANNEL_ID_MASK                       GENMASK(3, 0)
+
+#define R32_VIDEO_PARSER_STATUS_P_BAD_SHIFT(id)         (0 + ID2CH(id))
+#define R32_VIDEO_PARSER_STATUS_P_BAD_MASK              GENMASK(1, 0)
+#define R32_VIDEO_PARSER_STATUS_P_OV_SHIFT(id)          (8 + ID2CH(id))
+#define R32_VIDEO_PARSER_STATUS_P_OV_MASK               GENMASK(1, 0)
+
+#define R32_SYS_SOFT_RST_RESET_EXT_PHY_SHIFT            0
+#define R32_SYS_SOFT_RST_RESET_EXT_PHY_MASK             GENMASK(1, 0)
+#define R32_SYS_SOFT_RST_RESET_DEC_INTF_SHIFT           1
+#define R32_SYS_SOFT_RST_RESET_DEC_INTF_MASK            GENMASK(1, 0)
+#define R32_SYS_SOFT_RST_RESET_DMA_CTRL_SHIFT           2
+#define R32_SYS_SOFT_RST_RESET_DMA_CTRL_MASK            GENMASK(1, 0)
+#define R32_SYS_SOFT_RST_RESET_AV_REG_SHIFT             3
+#define R32_SYS_SOFT_RST_RESET_AV_REG_MASK              GENMASK(1, 0)
+
+#define R32_DMA_CHANNEL_ENABLE_ENA_DMA_SHIFT(id)        (0 + ID2DMACH17(id))
+#define R32_DMA_CHANNEL_ENABLE_ENA_DMA_MASK             GENMASK(1, 0)
+
+#define R32_DMA_CONFIG_BIG_ENDIAN_SHIFT                 0
+#define R32_DMA_CONFIG_BIG_ENDIAN_MASK                  GENMASK(1, 0)
+#define R32_DMA_CONFIG_ENA_INTX_SHIFT                   2
+#define R32_DMA_CONFIG_ENA_INTX_MASK                    GENMASK(1, 0)
+#define R32_DMA_CONFIG_ENA_CPL_WAIT_SHIFT               3
+#define R32_DMA_CONFIG_ENA_CPL_WAIT_MASK                GENMASK(1, 0)
+#define R32_DMA_CONFIG_MASK_OVF_SHIFT(id)               (8 + ID2DMACH8(id))
+#define R32_DMA_CONFIG_MASK_OVF_MASK                    GENMASK(1, 0)
+#define R32_DMA_CONFIG_MASK_BAD_PTR_SHIFT(id)           (16 + ID2DMACH8(id))
+#define R32_DMA_CONFIG_MASK_BAD_PTR_MASK                GENMASK(1, 0)
+#define R32_DMA_CONFIG_MASK_BAD_FMT_SHIFT(id)           (24 + ID2DMACH8(id))
+#define R32_DMA_CONFIG_MASK_BAD_FMT_MASK                GENMASK(1, 0)
+
+#define R32_DMA_TIMER_INTERVAL_DMA_INT_TIMER_SHIFT      0
+#define R32_DMA_TIMER_INTERVAL_DMA_INT_TIMER_MASK       GENMASK(22, 0)
+
+#define R32_DMA_CHANNEL_TIMEOUT_DMA_VDO_CH_TIMEOUT_SHIFT    0
+#define R32_DMA_CHANNEL_TIMEOUT_DMA_VDO_CH_TIMEOUT_MASK     GENMASK(12, 0)
+#define R32_DMA_CHANNEL_TIMEOUT_DMA_DAT_CH_TIMEOUT_SHIFT    12
+#define R32_DMA_CHANNEL_TIMEOUT_DMA_DAT_CH_TIMEOUT_MASK     GENMASK(12, 0)
+#define R32_DMA_CHANNEL_TIMEOUT_PRE_TIMEOUT_OFST_SHIFT      24
+#define R32_DMA_CHANNEL_TIMEOUT_PRE_TIMEOUT_OFST_MASK       GENMASK(6, 0)
+
+#define R32_DMA_CHANNEL_CONFIG_START_IDX_DMA_SHIFT      0
+#define R32_DMA_CHANNEL_CONFIG_START_IDX_DMA_MASK       GENMASK(10, 0)
+#define R32_DMA_CHANNEL_CONFIG_END_IDX_DMA_SHIFT        10
+#define R32_DMA_CHANNEL_CONFIG_END_IDX_DMA_MASK         GENMASK(10, 0)
+#define R32_DMA_CHANNEL_CONFIG_VIDEO_OUT_FORMAT_SHIFT   20
+#define R32_DMA_CHANNEL_CONFIG_VIDEO_OUT_FORMAT_MASK    GENMASK(3, 0)
+#define R32_DMA_CHANNEL_CONFIG_ENA_HDECI_SHIFT          23
+#define R32_DMA_CHANNEL_CONFIG_ENA_HDECI_MASK           GENMASK(1, 0)
+#define R32_DMA_CHANNEL_CONFIG_ENA_VDECI_SHIFT          24
+#define R32_DMA_CHANNEL_CONFIG_ENA_VDECI_MASK           GENMASK(1, 0)
+#define R32_DMA_CHANNEL_CONFIG_MASTER_CHID_SHIFT        25
+#define R32_DMA_CHANNEL_CONFIG_MASTER_CHID_MASK         GENMASK(2, 0)
+#define R32_DMA_CHANNEL_CONFIG_ENA_MASTER_SHIFT         27
+#define R32_DMA_CHANNEL_CONFIG_ENA_MASTER_MASK          GENMASK(1, 0)
+#define R32_DMA_CHANNEL_CONFIG_ENA_FIELD_DROP_SHIFT     28
+#define R32_DMA_CHANNEL_CONFIG_ENA_FIELD_DROP_MASK      GENMASK(1, 0)
+#define R32_DMA_CHANNEL_CONFIG_FIELD_OUT_SHIFT          29
+#define R32_DMA_CHANNEL_CONFIG_FIELD_OUT_MASK           GENMASK(1, 0)
+#define R32_DMA_CHANNEL_CONFIG_VIN_MUX_SEL_SHIFT        30
+#define R32_DMA_CHANNEL_CONFIG_VIN_MUX_SEL_MASK         GENMASK(2, 0)
+
+#define R32_VIDEO_CONTROL1_VSCL_ENA_0_SHIFT             6
+#define R32_VIDEO_CONTROL1_VSCL_ENA_0_MASK              GENMASK(1, 0)
+#define R32_VIDEO_CONTROL1_HSCL_ENA_0_SHIFT             7
+#define R32_VIDEO_CONTROL1_HSCL_ENA_0_MASK              GENMASK(1, 0)
+#define R32_VIDEO_CONTROL1_VSCL_ENA_1_SHIFT             10
+#define R32_VIDEO_CONTROL1_VSCL_ENA_1_MASK              GENMASK(1, 0)
+#define R32_VIDEO_CONTROL1_SYS_MODE_DMA_SHIFT(id)       (13 + ID2DMACH8(id))
+#define R32_VIDEO_CONTROL1_SYS_MODE_DMA_MASK            GENMASK(1, 0)
+
+#define R32_VIDEO_CONTROL2_EXT_VDAT_ENA_SHIFT(id)       (ID2DMACH8(id))
+#define R32_VIDEO_CONTROL2_EXT_VDAT_ENA_MASK            GENMASK(1, 0)
+#define R32_VIDEO_CONTROL2_PAT_SEL_GEN_SHIFT(id)        (8 + ID2YUVGEN(id))
+#define R32_VIDEO_CONTROL2_PAT_SEL_GEN_MASK             GENMASK(1, 0)
+#define R32_VIDEO_CONTROL2_RST_GEN_SHIFT(id)            (16 + ID2YUVGEN(id))
+#define R32_VIDEO_CONTROL2_RST_GEN_MASK                 GENMASK(1, 0)
+
+#define R32_AUDIO_CONTROL1_EXT_ADAT_ENA_SHIFT           0
+#define R32_AUDIO_CONTROL1_EXT_ADAT_ENA_MASK            GENMASK(1, 0)
+#define R32_AUDIO_CONTROL1_MIX_MODE_SHIFT               1
+#define R32_AUDIO_CONTROL1_MIX_MODE_MASK                GENMASK(3, 0)
+#define R32_AUDIO_CONTROL1_PAT_SEL_ADO_SHIFT            4
+#define R32_AUDIO_CONTROL1_PAT_SEL_ADO_MASK             GENMASK(1, 0)
+#define R32_AUDIO_CONTROL1_INT_GEN_ADAT_RATE_SHIFT      5
+#define R32_AUDIO_CONTROL1_INT_GEN_ADAT_RATE_MASK       GENMASK(14, 0)
+#define R32_AUDIO_CONTROL1_BYTE_LENGTH_DMA8TO16_SHIFT   19
+#define R32_AUDIO_CONTROL1_BYTE_LENGTH_DMA8TO16_MASK    GENMASK(13, 0)
+
+#define R32_AUDIO_CONTROL2_AUDIO_CLK_REF_SHIFT      0
+#define R32_AUDIO_CONTROL2_AUDIO_CLK_REF_MASK       GENMASK(30, 0)
+
+#define R32_PHASE_REF_PHASE_REF_SHIFT               0
+#define R32_PHASE_REF_PHASE_REF_MASK                GENMASK(14, 0)
+#define R32_PHASE_REF_DMA_MODE_SHIFT(id)            (16 + ID2DMACH8(id) * 2)
+#define R32_PHASE_REF_DMA_MODE_MASK                 GENMASK(2, 0)
+
+#define R32_INTL_HBAR_CTRL_ST_LINE_HBAR_SHIFT       0
+#define R32_INTL_HBAR_CTRL_ST_LINE_HBAR_MASK        GENMASK(8, 0)
+#define R32_INTL_HBAR_CTRL_HEIGHT_HBAR_SHIFT        8
+#define R32_INTL_HBAR_CTRL_HEIGHT_HBAR_MASK         GENMASK(8, 0)
+
+#define R32_AUDIO_CONTROL3_OUT_BITWIDTH_SHIFT       8
+#define R32_AUDIO_CONTROL3_OUT_BITWIDTH_MASK        GENMASK(1, 0)
+
+#define R32_VIDEO_FIELD_CTRL_FLD_OUT_OPT_SHIFT      0
+#define R32_VIDEO_FIELD_CTRL_FLD_OUT_OPT_MASK       GENMASK(30, 0)
+#define R32_VIDEO_FIELD_CTRL_START_FLD_SHIFT        30
+#define R32_VIDEO_FIELD_CTRL_START_FLD_MASK         GENMASK(1, 0)
+#define R32_VIDEO_FIELD_CTRL_FLD_CTRL_ENA_SHIFT     31
+#define R32_VIDEO_FIELD_CTRL_FLD_CTRL_ENA_MASK      GENMASK(1, 0)
+
+#define R32_HSCALER_CTRL_START_POS_SHIFT            0
+#define R32_HSCALER_CTRL_START_POS_MASK             GENMASK(5, 0)
+#define R32_HSCALER_CTRL_END_POS_SHIFT              5
+#define R32_HSCALER_CTRL_END_POS_MASK               GENMASK(10, 0)
+#define R32_HSCALER_CTRL_PHASE_REF_SHIFT            15
+#define R32_HSCALER_CTRL_PHASE_REF_MASK             GENMASK(16, 0)
+#define R32_HSCALER_CTRL_HSCALER_ENA_SHIFT          31
+#define R32_HSCALER_CTRL_HSCALER_ENA_MASK           GENMASK(1, 0)
+
+#define R32_VIDEO_SIZE_H_SIZE_SHIFT                 0
+#define R32_VIDEO_SIZE_H_SIZE_MASK                  GENMASK(11, 0)
+#define R32_VIDEO_SIZE_V_SIZE_SHIFT                 16
+#define R32_VIDEO_SIZE_V_SIZE_MASK                  GENMASK(9, 0)
+#define R32_VIDEO_SIZE_VS_F2_EN_SHIFT               30
+#define R32_VIDEO_SIZE_VS_F2_EN_MASK                GENMASK(1, 0)
+#define R32_VIDEO_SIZE_VS_EN_SHIFT                  31
+#define R32_VIDEO_SIZE_VS_EN_MASK                   GENMASK(1, 0)
+
+#define R32_VIDEO_SIZE_F2_H_SIZE_F2_SHIFT           0
+#define R32_VIDEO_SIZE_F2_H_SIZE_F2_MASK            GENMASK(11, 0)
+#define R32_VIDEO_SIZE_F2_V_SIZE_F2_SHIFT           16
+#define R32_VIDEO_SIZE_F2_V_SIZE_F2_MASK            GENMASK(9, 0)
+
+#define R32_MD_CONF_MD_TRESHOLD_SHIFT               0
+#define R32_MD_CONF_MD_TRESHOLD_MASK                GENMASK(18, 0)
+#define R32_MD_CONF_MD_MODE_SHIFT                   18
+#define R32_MD_CONF_MD_MODE_MASK                    GENMASK(1, 0)
+#define R32_MD_CONF_MD_ACT_FLD_SHIFT                19
+#define R32_MD_CONF_MD_ACT_FLD_MASK                 GENMASK(1, 0)
+#define R32_MD_CONF_MD_ENABLE_SHIFT                 20
+#define R32_MD_CONF_MD_ENABLE_MASK                  GENMASK(1, 0)
+#define R32_MD_CONF_MD_TSCALE_SHIFT                 21
+#define R32_MD_CONF_MD_TSCALE_MASK                  GENMASK(3, 0)
+
+#define R32_MD_CONF_MASK (                      \
+		(R32_MD_CONF_MD_TRESHOLD_MASK           \
+			<< R32_MD_CONF_MD_TRESHOLD_SHIFT) | \
+		(R32_MD_CONF_MD_MODE_MASK               \
+			<< R32_MD_CONF_MD_MODE_SHIFT    ) | \
+		(R32_MD_CONF_MD_ACT_FLD_MASK            \
+			<< R32_MD_CONF_MD_ACT_FLD_SHIFT ) | \
+		(R32_MD_CONF_MD_TSCALE_MASK             \
+			<< R32_MD_CONF_MD_TSCALE_SHIFT  ) )
+
+#define R32_MD_INIT_SHIFT                           0
+#define R32_MD_INIT_MASK                            GENMASK(1, 0)
+
+#define R32_MD_MAPO_SHIFT                           0
+#define R32_MD_MAPO_MASK                            GENMASK(24, 0)
+
+#define R32_VDMA_WHP_ACTIVE_WIDTH_SHIFT             0
+#define R32_VDMA_WHP_ACTIVE_WIDTH_MASK              GENMASK(11, 0)
+#define R32_VDMA_WHP_LINE_WIDTH_SHIFT               11
+#define R32_VDMA_WHP_LINE_WIDTH_MASK                GENMASK(11, 0)
+#define R32_VDMA_WHP_HEIGHT_SHIFT                   22
+#define R32_VDMA_WHP_HEIGHT_MASK                    GENMASK(10, 0)
+
+#define R32_VDMA_F2_WHP_F2_ACTIVE_WIDTH_SHIFT       0
+#define R32_VDMA_F2_WHP_F2_ACTIVE_WIDTH_MASK        GENMASK(11, 0)
+#define R32_VDMA_F2_WHP_F2_LINE_WIDTH_SHIFT         11
+#define R32_VDMA_F2_WHP_F2_LINE_WIDTH_MASK          GENMASK(11, 0)
+#define R32_VDMA_F2_WHP_F2_HEIGHT_SHIFT             22
+#define R32_VDMA_F2_WHP_F2_HEIGHT_MASK              GENMASK(10, 0)
+
+#define R32_RG_NR_CTRL_RG_FRONT_CTL_SHIFT           0
+#define R32_RG_NR_CTRL_RG_FRONT_CTL_MASK            GENMASK(8, 0)
+#define R32_RG_NR_CTRL_RG_FRONT_GEN_CTL_SHIFT       8
+#define R32_RG_NR_CTRL_RG_FRONT_GEN_CTL_MASK        GENMASK(8, 0)
+#define R32_RG_NR_CTRL_RG_NRDET_CTL_SHIFT           16
+#define R32_RG_NR_CTRL_RG_NRDET_CTL_MASK            GENMASK(4, 0)
+#define R32_RG_NR_CTRL_RGA_RST_NRDET_SHIFT          20
+#define R32_RG_NR_CTRL_RGA_RST_NRDET_MASK           GENMASK(1, 0)
+#define R32_RG_NR_CTRL_SKIP_CNT_SHIFT               21
+#define R32_RG_NR_CTRL_SKIP_CNT_MASK                GENMASK(2, 0)
+#define R32_RG_NR_CTRL_NR2D_ENA_SHIFT               23
+#define R32_RG_NR_CTRL_NR2D_ENA_MASK                GENMASK(1, 0)
+
+#define R32_PIN_CFG_CTRL_MODE_SHIFT                 0
+#define R32_PIN_CFG_CTRL_MODE_MASK                  GENMASK(2, 0)
+#define R32_PIN_CFG_CTRL_VCHDTEST_SHIFT(id)         (8 + ID2CH(id))
+#define R32_PIN_CFG_CTRL_VCHDTEST_MASK              GENMASK(1, 0)
+#define R32_PIN_CFG_CTRL_ACHDTEST_SHIFT(id)         (16 + ID2CH(id))
+#define R32_PIN_CFG_CTRL_ACHDTEST_MASK              GENMASK(1, 0)
+
+#define R32_DBGPORT_CTRL_SUBMODULE_SEL_SHIFT        0
+#define R32_DBGPORT_CTRL_SUBMODULE_SEL_MASK         GENMASK(8, 0)
+#define R32_DBGPORT_CTRL_BLOCK_SEL_SHIFT            8
+#define R32_DBGPORT_CTRL_BLOCK_SEL_MASK             GENMASK(7, 0)
+#define R32_DBGPORT_CTRL_MSB16_EN_SHIFT             15
+#define R32_DBGPORT_CTRL_MSB16_EN_MASK              GENMASK(1, 0)
+
+#define R32_EP_REG_ADDR_SHIFT                       0
+#define R32_EP_REG_ADDR_MASK                        GENMASK(12, 0)
+
+
+/* motion detection default configuration */
+#define R32_MD_CONF_MD_TRESHOLD_DEFAULT             0x10410
+#define R32_MD_CONF_MD_MODE_DEFAULT                 0x1
+#define R32_MD_CONF_MD_ACT_FLD_DEFAULT              0x0
+#define R32_MD_CONF_MD_ENABLE_DEFAULT               0x0
+#define R32_MD_CONF_MD_TSCALE_DEFAULT               0x0
+
+#define R32_MD_CONF_DEFAULT (                   \
+		((R32_MD_CONF_MD_TRESHOLD_DEFAULT       \
+			& R32_MD_CONF_MD_TRESHOLD_MASK  )   \
+			<< R32_MD_CONF_MD_TRESHOLD_SHIFT) | \
+		((R32_MD_CONF_MD_MODE_DEFAULT           \
+			& R32_MD_CONF_MD_MODE_MASK      )   \
+			<< R32_MD_CONF_MD_MODE_SHIFT    ) | \
+		((R32_MD_CONF_MD_ACT_FLD_DEFAULT        \
+			& R32_MD_CONF_MD_ACT_FLD_MASK   )   \
+			<< R32_MD_CONF_MD_ACT_FLD_SHIFT ) | \
+		((R32_MD_CONF_MD_ENABLE_DEFAULT         \
+			& R32_MD_CONF_MD_ENABLE_MASK    )   \
+			<< R32_MD_CONF_MD_ENABLE_SHIFT  ) | \
+		((R32_MD_CONF_MD_TSCALE_DEFAULT         \
+			& R32_MD_CONF_MD_TSCALE_MASK    )   \
+			<< R32_MD_CONF_MD_TSCALE_SHIFT  ) )
+
+/**
+ * struct tw6869_md - instance of motion detection
+ * @mode: support disabled or global threshold mode only
+ * @conf: register value include threshold, block size, active field, tscale
+ */
+struct tw6869_md {
+	enum v4l2_detect_md_mode mode;
+	unsigned int conf;
+};
 
 /**
  * struct tw6869_buf - instance of one DMA buffer
@@ -218,6 +521,7 @@ struct tw6869_dma {
  * @buf_list: list of buffers queued for DMA
  * @hdl: handler for control framework
  * @format: pixel format
+ * @md: motion detection
  * @std: video standard (e.g. PAL/NTSC)
  * @input: input line for video signal
  * @sequence: frame sequence counter
@@ -228,8 +532,6 @@ struct tw6869_dma {
  * @sharpness: control state
  * @saturation: control state
  * @hue: control state
- * @md_mode: motion detection state (enabled | disabled)
- * @md_threshold: motion detection threshold
  */
 struct tw6869_vch {
 	struct tw6869_dma dma;
@@ -239,6 +541,7 @@ struct tw6869_vch {
 	struct list_head buf_list;
 	struct v4l2_ctrl_handler hdl;
 	struct v4l2_pix_format format;
+	struct tw6869_md md;
 	v4l2_std_id std;
 	unsigned int input;
 	unsigned int sequence;
@@ -249,8 +552,6 @@ struct tw6869_vch {
 	unsigned int sharpness;
 	unsigned int saturation;
 	unsigned int hue;
-	unsigned int md_mode;
-	unsigned int md_threshold;
 };
 
 /**
