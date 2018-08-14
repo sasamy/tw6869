@@ -48,7 +48,7 @@
 #define FSL_G_CHIP_IDENT
 #define FSL_QUERYBUF
 
-#define TW_DEFAULT_V4L2_STD        V4L2_STD_NTSC /* V4L2_STD_PAL */
+#define TW_DEFAULT_V4L2_STD        V4L2_STD_PAL
 #define TW_DMA_ERR_MAX             30
 #define TW_APAGE_MAX               16
 #define TW_VBUF_ALLOC              6
@@ -164,7 +164,7 @@
  * struct tw6869_buf - instance of one DMA buffer
  */
 struct tw6869_buf {
-	struct vb2_buffer vb;
+	struct vb2_v4l2_buffer vb2_v4l2;
 	struct list_head list;
 	dma_addr_t dma_addr;
 };
@@ -282,7 +282,6 @@ struct tw6869_ach {
  * @ach_max: number of the used audio channels
  * @dma: DMA channels
  * @v4l2_dev: device registered in V4L2 layer
- * @alloc_ctx: context for videobuf2
  * @vch: array of video channel instance
  * @ach: array of audio channel instance
  */
@@ -294,7 +293,6 @@ struct tw6869_dev {
 	unsigned int ach_max;
 	struct tw6869_dma * dma[TW_ID_MAX];
 	struct v4l2_device v4l2_dev;
-	struct vb2_alloc_ctx *alloc_ctx;
 	struct tw6869_vch vch[TW_CH_MAX];
 	struct tw6869_ach ach[TW_CH_MAX];
 };

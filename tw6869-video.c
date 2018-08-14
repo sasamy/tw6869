@@ -152,12 +152,13 @@ static void tw6869_vch_dma_frame_isr(struct tw6869_dma *dma)
 
 	if (done && next) {
 		tw_write(dma->dev, dma->reg[i], next->dma_addr);
-		v4l2_get_timestamp(&done->vb.v4l2_buf.timestamp);
-		done->vb.v4l2_buf.sequence = vch->sequence++;
-		done->vb.v4l2_buf.field = V4L2_FIELD_INTERLACED;
+		done->vb2_v4l2.vb2_buf.timestamp = ktime_get_ns();
+		done->vb2_v4l2.sequence = vch->sequence;
+		done->vb2_v4l2.field = V4L2_FIELD_INTERLACED;
 		if (vch->md_mode)
 			tw6869_motion_detection_event(vch);
-		vb2_buffer_done(&done->vb, VB2_BUF_STATE_DONE);
+		vb2_buffer_done(&done->vb2_v4l2.vb2_buf, VB2_BUF_STATE_DONE);
+		vch->sequence++;
 	} else {
 		tw_err(dma->dev, "vch%u NOBUF seq=%u dcount=%u\n",
 			ID2CH(dma->id), vch->sequence, ++vch->dcount);
@@ -185,12 +186,13 @@ static void tw6869_vch_dma_field_isr(struct tw6869_dma *dma)
 
 	if (done && next) {
 		tw_write(dma->dev, dma->reg[i], next->dma_addr);
-		v4l2_get_timestamp(&done->vb.v4l2_buf.timestamp);
-		done->vb.v4l2_buf.sequence = vch->sequence++;
-		done->vb.v4l2_buf.field = V4L2_FIELD_BOTTOM;
+		done->vb2_v4l2.vb2_buf.timestamp = ktime_get_ns();
+		done->vb2_v4l2.sequence = vch->sequence;
+		done->vb2_v4l2.field = V4L2_FIELD_BOTTOM;
 		if (vch->md_mode)
 			tw6869_motion_detection_event(vch);
-		vb2_buffer_done(&done->vb, VB2_BUF_STATE_DONE);
+		vb2_buffer_done(&done->vb2_v4l2.vb2_buf, VB2_BUF_STATE_DONE);
+		vch->sequence++;
 	} else {
 		tw_err(dma->dev, "vch%u NOBUF seq=%u dcount=%u\n",
 			ID2CH(dma->id), vch->sequence, ++vch->dcount);
@@ -333,32 +335,27 @@ static void tw6869_vch_fill_pix_format(struct tw6869_vch *vch,
 /**
  * Videobuf2 Operations
  */
-static int queue_setup(struct vb2_queue *vq, const struct v4l2_format *fmt,
+static int queue_setup(struct vb2_queue *vq,
 		unsigned int *nbuffers, unsigned int *nplanes,
-		unsigned int sizes[], void *alloc_ctxs[])
+		unsigned int sizes[], struct device *alloc_devs[])
 {
 	struct tw6869_vch *vch = vb2_get_drv_priv(vq);
 
 	if (vq->num_buffers + *nbuffers < TW_VBUF_ALLOC)
 		*nbuffers = TW_VBUF_ALLOC - vq->num_buffers;
 
-	if (fmt && fmt->fmt.pix.sizeimage < vch->format.sizeimage)
-		return -EINVAL;
+	if (*nplanes)
+		return sizes[0] < vch->format.sizeimage ? -EINVAL : 0;
 
 	*nplanes = 1;
-	sizes[0] = fmt ? fmt->fmt.pix.sizeimage : vch->format.sizeimage;
-	alloc_ctxs[0] = vch->dma.dev->alloc_ctx;
+	sizes[0] = vch->format.sizeimage;
 	return 0;
 }
 
 static int buffer_init(struct vb2_buffer *vb)
 {
-	struct tw6869_buf *buf = container_of(vb, struct tw6869_buf, vb);
-
-#ifdef FSL_QUERYBUF
-	if (vb->v4l2_buf.memory == V4L2_MEMORY_USERPTR)
-		return 0;
-#endif
+	struct tw6869_buf *buf = container_of(to_vb2_v4l2_buffer(vb),
+			struct tw6869_buf, vb2_v4l2);
 
 	buf->dma_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
 	INIT_LIST_HEAD(&buf->list);
@@ -383,7 +380,8 @@ static int buffer_prepare(struct vb2_buffer *vb)
 static void buffer_queue(struct vb2_buffer *vb)
 {
 	struct tw6869_vch *vch = vb2_get_drv_priv(vb->vb2_queue);
-	struct tw6869_buf *buf = container_of(vb, struct tw6869_buf, vb);
+	struct tw6869_buf *buf = container_of(to_vb2_v4l2_buffer(vb),
+			struct tw6869_buf, vb2_v4l2);
 	unsigned long flags;
 
 	spin_lock_irqsave(&vch->dma.lock, flags);
@@ -440,13 +438,13 @@ static void stop_streaming(struct vb2_queue *vq)
 	spin_lock_irqsave(&dma->lock, flags);
 	for (i = 0; i < TW_BUF_MAX; i++) {
 		if (dma->buf[i])
-			vb2_buffer_done(&dma->buf[i]->vb, VB2_BUF_STATE_ERROR);
+			vb2_buffer_done(&dma->buf[i]->vb2_v4l2.vb2_buf, VB2_BUF_STATE_ERROR);
 		dma->buf[i] = NULL;
 	}
 
 	list_for_each_entry_safe(buf, node, &vch->buf_list, list) {
-		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
 		list_del(&buf->list);
+		vb2_buffer_done(&buf->vb2_v4l2.vb2_buf, VB2_BUF_STATE_ERROR);
 	}
 	spin_unlock_irqrestore(&dma->lock, flags);
 
@@ -755,33 +753,17 @@ static int fsl_querybuf(struct file *file, void *priv,
 		struct v4l2_buffer *b)
 {
 	struct tw6869_vch *vch = video_drvdata(file);
-	dma_addr_t userptr_dma_addr = b->m.userptr;
-	struct vb2_buffer *vb;
-	struct tw6869_buf *buf;
 	int ret;
 
 	ret = vb2_querybuf(&vch->queue, b);
 	if (ret)
 		return ret;
 
-	vb = vch->queue.bufs[b->index];
-
-	switch (b->memory) {
-	case V4L2_MEMORY_USERPTR:
-		if (!userptr_dma_addr) {
-			tw_err(vch->dma.dev,
-				"m.userptr shall contain physical address\n");
-			return -EINVAL;
-		}
-		buf = container_of(vb, struct tw6869_buf, vb);
-		buf->dma_addr = userptr_dma_addr;
-		break;
-	case V4L2_MEMORY_MMAP:
-		if (b->flags & V4L2_BUF_FLAG_MAPPED) /* return physical address */
-			b->m.offset = vb2_dma_contig_plane_dma_addr(vb, 0);
-		break;
+	if (b->flags & V4L2_BUF_FLAG_MAPPED) {
+		struct vb2_buffer *vb = vch->queue.bufs[b->index];
+		/* return physical address */
+		b->m.offset = vb2_dma_contig_plane_dma_addr(vb, 0);
 	}
-
 	return 0;
 }
 #endif
@@ -959,6 +941,7 @@ static int tw6869_vch_register(struct tw6869_vch *vch)
 	q->min_buffers_needed = TW_BUF_MAX;
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	q->gfp_flags = GFP_DMA32;
+	q->dev = &vch->dma.dev->pdev->dev;
 	q->lock = &vch->mlock;
 	ret = vb2_queue_init(q);
 	if (ret)
@@ -992,9 +975,6 @@ void tw6869_video_unregister(struct tw6869_dev *dev)
 	tw_write(dev, R32_DMA_CMD, 0x0);
 	tw_write(dev, R32_DMA_CHANNEL_ENABLE, 0x0);
 
-	if (!dev->alloc_ctx)
-		return;
-
 	if (dev->vch_max > TW_CH_MAX)
 		dev->vch_max = TW_CH_MAX;
 
@@ -1006,8 +986,6 @@ void tw6869_video_unregister(struct tw6869_dev *dev)
 	}
 
 	v4l2_device_unregister(&dev->v4l2_dev);
-	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
-	dev->alloc_ctx = NULL;
 }
 
 int tw6869_video_register(struct tw6869_dev *dev)
@@ -1020,15 +998,6 @@ int tw6869_video_register(struct tw6869_dev *dev)
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 	if (ret)
 		return ret;
-
-	dev->alloc_ctx = vb2_dma_contig_init_ctx(&pdev->dev);
-	if (IS_ERR(dev->alloc_ctx)) {
-		ret = PTR_ERR(dev->alloc_ctx);
-		tw_err(dev, "can't allocate buffer context\n");
-		v4l2_device_unregister(&dev->v4l2_dev);
-		dev->alloc_ctx = NULL;
-		return ret;
-	}
 
 	if (dev->vch_max > TW_CH_MAX)
 		dev->vch_max = TW_CH_MAX;
