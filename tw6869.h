@@ -184,6 +184,7 @@ struct tw6869_buf {
  * @lost: video (audio) signal lost
  * @low_power: channel in a low-power state
  * @err: DMA errors counter
+ * @wait: wait for the desired state before the streaming starts
  * @srst: software reset the video (audio) portion
  * @ctrl: restore control state
  * @cfg: configure the DMA channel
@@ -203,6 +204,7 @@ struct tw6869_dma {
 	unsigned int lost;
 	unsigned int low_power;
 	unsigned int err;
+	void (*wait)(struct tw6869_dma *);
 	void (*srst)(struct tw6869_dma *);
 	void (*ctrl)(struct tw6869_dma *);
 	void (*cfg)(struct tw6869_dma *);
@@ -355,6 +357,7 @@ static inline unsigned int tw_dma_is_on(struct tw6869_dma *dma)
 
 static inline void tw_dma_enable(struct tw6869_dma *dma)
 {
+	(*dma->wait)(dma);
 	tw_set(dma->dev, R32_DMA_CHANNEL_ENABLE, BIT(dma->id));
 	tw_set(dma->dev, R32_DMA_CMD, BIT(31) | BIT(dma->id));
 

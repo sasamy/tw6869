@@ -24,6 +24,26 @@
 /**
  * tw6869 internals
  */
+static void tw6869_vch_dma_wait(struct tw6869_dma *dma)
+{
+	int count = 10;
+	unsigned int vs = tw_read(dma->dev, R8_VIDEO_STATUS(dma->id));
+
+	/* if there is no video signal, immediately show the blue screen */
+	if (vs & BIT(7)) {
+		tw_dbg(dma->dev, "vch%d: video not present\n", ID2CH(dma->id));
+		return;
+	}
+	/* wait for logic is locked B[3], B[5], B[6]
+	   and even field is being decoded B[4] */
+	while (0x78 != (vs & 0x78) && --count >= 0) {
+		mdelay(5);
+		vs = tw_read(dma->dev, R8_VIDEO_STATUS(dma->id));
+	}
+	tw_dbg(dma->dev, "vch%d: %s field\n", ID2CH(dma->id),
+			(vs & BIT(4)) ? "even" : "odd");
+}
+
 static void tw6869_vch_dma_srst(struct tw6869_dma *dma)
 {
 	tw_set(dma->dev, R8_AVSRST(dma->id), BIT(ID2SC(dma->id)));
@@ -212,11 +232,11 @@ static unsigned int tw6869_vch_fields_map(struct tw6869_vch *vch)
 	};
 	unsigned int std_625_50[26] = {
 		14, 0, 0, 1, 2, 2,  3,  3,  4,  4,  5,  6,  6,
-		    7, 7, 8, 9, 9, 10, 10, 11, 12, 12, 13, 13, 14
+			7, 7, 8, 9, 9, 10, 10, 11, 12, 12, 13, 13, 14
 	};
 	unsigned int std_525_60[31] = {
 		14, 0, 0, 0, 1, 1, 2,  2,  3,  3,  4,  4,  5,  5,  6,  6,
-		    7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 14, 14
+			7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 14, 14
 	};
 	unsigned int i, m;
 
@@ -1015,6 +1035,7 @@ int tw6869_video_register(struct tw6869_dev *dev)
 		dev_info(&pdev->dev, "vch%i registered as %s\n", i,
 			 video_device_node_name(&vch->vdev));
 
+		vch->dma.wait = tw6869_vch_dma_wait;
 		vch->dma.srst = tw6869_vch_dma_srst;
 		vch->dma.ctrl = tw6869_vch_dma_ctrl;
 		vch->dma.cfg = tw6869_vch_dma_cfg;

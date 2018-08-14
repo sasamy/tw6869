@@ -34,6 +34,11 @@ static const struct pci_device_id tw6869_pci_tbl[] = {
 
 MODULE_DEVICE_TABLE(pci, tw6869_pci_tbl);
 
+static void tw6869_dummy_dma_wait(struct tw6869_dma *dma)
+{
+	tw_err(dma->dev, "DMA %u\n", dma->id);
+}
+
 static void tw6869_dummy_dma_srst(struct tw6869_dma *dma)
 {
 	tw_err(dma->dev, "DMA %u\n", dma->id);
@@ -62,6 +67,7 @@ static void tw6869_delayed_dma_on(struct work_struct *work)
 
 	spin_lock_irqsave(&dma->dev->rlock, flags);
 	if (tw_dma_active(dma) && !dma->low_power) {
+		(*dma->wait)(dma);
 		tw_set(dma->dev, R32_DMA_CHANNEL_ENABLE, BIT(dma->id));
 		tw_set(dma->dev, R32_DMA_CMD, BIT(31) | BIT(dma->id));
 		dma->fld = 0;
@@ -95,6 +101,7 @@ static void tw6869_dma_init(struct tw6869_dev *dev)
 		}
 		dma->id = id;
 		dma->dev = dev;
+		dma->wait = tw6869_dummy_dma_wait;
 		dma->srst = tw6869_dummy_dma_srst;
 		dma->ctrl = tw6869_dummy_dma_ctrl;
 		dma->cfg = tw6869_dummy_dma_cfg;
