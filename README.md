@@ -14,3 +14,9 @@ Generic installation instructions:
 $ make
 
 $ sudo make install
+
+Note: on i.MX6 linux 4.9+, you must disable MSI on the kernel command line
+
+pci=nomsi
+
+https://community.nxp.com/message/1021557?commentID=1021557#comment-1021557
