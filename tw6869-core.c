@@ -135,36 +135,47 @@ static void tw6869_dma_reset(struct tw6869_dma *dma)
 	}
 }
 
+#define DMA_FIELD_FLAG    24
+#define VID_SIG_LOST      0
+#define DMA_FIFO_OVERFLOW 24
+#define DMA_FIFO_PTR_ERR  16
+#define VID_BAD_FMT       24
+
 static irqreturn_t tw6869_irq(int irq, void *dev_id)
 {
 	struct tw6869_dev *dev = dev_id;
 	unsigned long ints = tw_read(dev, R32_INT_STATUS);
 
 	if (ints) {
-		unsigned int pbs, errs, pars, losts, cmd, id;
+		unsigned int pbs, fifos, pars, cmd, flds, losts, fmts, id;
 
 		pbs = tw_read(dev, R32_PB_STATUS);
-		errs = tw_read(dev, R32_FIFO_STATUS);
+		fifos = tw_read(dev, R32_FIFO_STATUS);
 		pars = tw_read(dev, R32_VIDEO_PARSER_STATUS);
 		cmd = tw_read(dev, R32_DMA_CMD);
 
-		losts = errs & TW_VID;
-		errs = (ints >> 24 | errs >> 24 | errs >> 16) & TW_VID;
-		ints = (ints | errs) & cmd;
+		flds = (pbs >> DMA_FIELD_FLAG) & TW_VID;
+		losts = (fifos >> VID_SIG_LOST) & TW_VID;
+		fifos = (fifos >> DMA_FIFO_OVERFLOW | fifos >> DMA_FIFO_PTR_ERR) & TW_VID;
+		fmts = (ints >> VID_BAD_FMT) & TW_VID;
+
+		ints = (ints | fmts | fifos) & cmd;
 
 		for_each_set_bit(id, &ints, TW_ID_MAX) {
 			struct tw6869_dma *dma = dev->dma[id];
-			unsigned int err = (errs >> id) & 0x1;
+			unsigned int dma_fifo_err = (fifos >> id) & 0x1;
 			unsigned int lost = (losts >> id) & 0x1;
-			unsigned int fld = ((pbs >> 24) >> id) & 0x1;
+			unsigned int fld = (flds >> id) & 0x1;
 			unsigned int pb = (pbs >> id) & 0x1;
+
+			dma->bad_fmt = (fmts >> id) & 0x1;
 
 			if (dma->lost != lost) {
 				tw_info(dev, "ch%d: signal %s\n", dma->id,
 					lost ? "lost" : "recovered");
 			}
 
-			if (err || dma->lost != lost ||
+			if (dma_fifo_err || (dma->lost && !lost) ||
 					dma->fld != fld || dma->pb != pb) {
 				spin_lock(&dev->rlock);
 				tw6869_dma_reset(dma);

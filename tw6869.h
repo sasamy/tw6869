@@ -182,6 +182,7 @@ struct tw6869_buf {
  * @delay: delay in jiffies before switching DMA ON
  * @is_on: DMA channel status
  * @lost: video (audio) signal lost
+ * @bad_fmt: bad incoming data format
  * @low_power: channel in a low-power state
  * @err: DMA errors counter
  * @wait: wait for the desired state before the streaming starts
@@ -202,6 +203,7 @@ struct tw6869_dma {
 	unsigned int delay;
 	unsigned int is_on;
 	unsigned int lost;
+	unsigned int bad_fmt;
 	unsigned int low_power;
 	unsigned int err;
 	void (*wait)(struct tw6869_dma *);

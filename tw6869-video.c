@@ -149,6 +149,16 @@ static void tw6869_motion_detection_event(struct tw6869_vch *vch)
 	}
 }
 
+static void tw6869_source_change_event(struct tw6869_vch *vch)
+{
+	struct v4l2_event ev = {
+		.type = V4L2_EVENT_SOURCE_CHANGE,
+		.u.src_change.changes = V4L2_EVENT_SRC_CH_RESOLUTION,
+	};
+	v4l2_event_queue(&vch->vdev, &ev);
+	tw_dbg(vch->dma.dev, "vch%u\n", ID2CH(vch->dma.id));
+}
+
 static inline int tw_vch_frame_mode(struct tw6869_vch *vch)
 {
 	return vch->format.height > 288;
@@ -172,13 +182,16 @@ static void tw6869_vch_dma_frame_isr(struct tw6869_dma *dma)
 
 	if (done && next) {
 		tw_write(dma->dev, dma->reg[i], next->dma_addr);
-		done->vb2_v4l2.vb2_buf.timestamp = ktime_get_ns();
-		done->vb2_v4l2.sequence = vch->sequence;
-		done->vb2_v4l2.field = V4L2_FIELD_INTERLACED;
+
+		if (dma->bad_fmt)
+			tw6869_source_change_event(vch);
 		if (vch->md_mode)
 			tw6869_motion_detection_event(vch);
+
+		done->vb2_v4l2.vb2_buf.timestamp = ktime_get_ns();
+		done->vb2_v4l2.sequence = vch->sequence++;
+		done->vb2_v4l2.field = V4L2_FIELD_INTERLACED;
 		vb2_buffer_done(&done->vb2_v4l2.vb2_buf, VB2_BUF_STATE_DONE);
-		vch->sequence++;
 	} else {
 		tw_err(dma->dev, "vch%u NOBUF seq=%u dcount=%u\n",
 			ID2CH(dma->id), vch->sequence, ++vch->dcount);
@@ -206,13 +219,16 @@ static void tw6869_vch_dma_field_isr(struct tw6869_dma *dma)
 
 	if (done && next) {
 		tw_write(dma->dev, dma->reg[i], next->dma_addr);
-		done->vb2_v4l2.vb2_buf.timestamp = ktime_get_ns();
-		done->vb2_v4l2.sequence = vch->sequence;
-		done->vb2_v4l2.field = V4L2_FIELD_BOTTOM;
+
+		if (dma->bad_fmt)
+			tw6869_source_change_event(vch);
 		if (vch->md_mode)
 			tw6869_motion_detection_event(vch);
+
+		done->vb2_v4l2.vb2_buf.timestamp = ktime_get_ns();
+		done->vb2_v4l2.sequence = vch->sequence++;
+		done->vb2_v4l2.field = V4L2_FIELD_BOTTOM;
 		vb2_buffer_done(&done->vb2_v4l2.vb2_buf, VB2_BUF_STATE_DONE);
-		vch->sequence++;
 	} else {
 		tw_err(dma->dev, "vch%u NOBUF seq=%u dcount=%u\n",
 			ID2CH(dma->id), vch->sequence, ++vch->dcount);
@@ -853,6 +869,8 @@ static int tw6869_subscribe_event(struct v4l2_fh *fh,
 	case V4L2_EVENT_MOTION_DET:
 		/* Allow for up to 30 events (1 second for NTSC) */
 		return v4l2_event_subscribe(fh, sub, 30, NULL);
+	case V4L2_EVENT_SOURCE_CHANGE:
+		return v4l2_event_subscribe(fh, sub, 1, NULL);
 	default:
 		return -EINVAL;
 	}
