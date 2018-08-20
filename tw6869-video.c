@@ -185,7 +185,7 @@ static void tw6869_vch_dma_frame_isr(struct tw6869_dma *dma)
 
 		if (dma->bad_fmt)
 			tw6869_source_change_event(vch);
-		if (vch->md_mode)
+		else if (vch->md_mode && !dma->lost)
 			tw6869_motion_detection_event(vch);
 
 		done->vb2_v4l2.vb2_buf.timestamp = ktime_get_ns();
@@ -222,7 +222,7 @@ static void tw6869_vch_dma_field_isr(struct tw6869_dma *dma)
 
 		if (dma->bad_fmt)
 			tw6869_source_change_event(vch);
-		if (vch->md_mode)
+		else if (vch->md_mode && !dma->lost)
 			tw6869_motion_detection_event(vch);
 
 		done->vb2_v4l2.vb2_buf.timestamp = ktime_get_ns();
