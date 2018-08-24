@@ -942,7 +942,7 @@ static int tw6869_vch_register(struct tw6869_vch *vch)
 	int ret;
 
 	/* Add the controls */
-	v4l2_ctrl_handler_init(hdl, 5);
+	v4l2_ctrl_handler_init(hdl, 7);
 	v4l2_ctrl_new_std(hdl, &tw6869_ctrl_ops,
 		  V4L2_CID_BRIGHTNESS, -128, 127, 1, 0);
 	v4l2_ctrl_new_std(hdl, &tw6869_ctrl_ops,
