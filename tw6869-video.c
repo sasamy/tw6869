@@ -293,7 +293,10 @@ static void tw6869_vch_dma_cfg(struct tw6869_dma *dma)
 	BUG_ON(!pix->width);
 
 	cfg = to_tw6869_std(vch->std);
-	tw_write(dma->dev, R8_STANDARD_SELECTION(dma->id), cfg);
+	/* B[2:0] standard selection
+	   B[3] = 0 enable VACTIVE and HDELAY shadow registers value
+	   depending on standard */
+	tw_write(dma->dev, R8_STANDARD_SELECTION(dma->id), cfg & 0x07);
 
 	cfg = BIT(31);
 	cfg |= ((vch->std & V4L2_STD_625_50 ? 288 : 240) & 0x1FF) << 16;
