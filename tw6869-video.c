@@ -599,8 +599,8 @@ static int tw6869_querystd(struct file *file, void *priv, v4l2_std_id *std)
 		return -EBUSY;
 
 	/* Enable and start standard detection */
-	tw_write(dma->dev, R8_STANDARD_SELECTION(dma->id), 0x7);
-	tw_write(dma->dev, R8_STANDARD_RECOGNIT(dma->id), 0xff);
+	tw_write(dma->dev, R8_STANDARD_SELECTION(dma->id), 0x07);
+	tw_write(dma->dev, R8_STANDARD_RECOGNIT(dma->id), 0xFF);
 
 	while (--count >= 0) {
 		msleep(100);
