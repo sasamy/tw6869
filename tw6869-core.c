@@ -165,22 +165,21 @@ static irqreturn_t tw6869_irq(int irq, void *dev_id)
 		for_each_set_bit(id, &ints, TW_ID_MAX) {
 			struct tw6869_dma *dma = dev->dma[id];
 			unsigned int dma_fifo_err = (fifos >> id) & 0x1;
-			unsigned int lost = (losts >> id) & 0x1;
 			unsigned int fld = (flds >> id) & 0x1;
 			unsigned int pb = (pbs >> id) & 0x1;
 			unsigned int prev_lost = dma->lost;
 
-			dma->lost = lost;
+			dma->lost = (losts >> id) & 0x1;;
 			dma->bad_fmt = (fmts >> id) & 0x1;
 
-			if (prev_lost != lost) {
+			if (prev_lost != dma->lost) {
 				tw_info(dev, "ch%d: signal %s\n", dma->id,
-					lost ? "lost" : "recovered");
+					dma->lost ? "lost" : "recovered");
 			}
 
 			/* Reset the channel after recovery because
 			   in some cases the fields order can be wrong */
-			if (dma_fifo_err || (prev_lost && !lost) ||
+			if (dma_fifo_err || (prev_lost && !dma->lost) ||
 					dma->fld != fld || dma->pb != pb) {
 				spin_lock(&dev->rlock);
 				tw6869_dma_reset(dma);
