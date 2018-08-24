@@ -118,7 +118,8 @@ static void tw6869_dma_reset(struct tw6869_dma *dma)
 	if (tw_dma_active(dma) && !dma->low_power) {
 		unsigned int is_on;
 
-		/* Resets the video (audio) portion to its default state */
+		/* Resets the video (audio) portion to its default state
+		   but all register content remain unchanged */
 		(*dma->srst)(dma);
 
 		tw_clear(dma->dev, R32_DMA_CMD, BIT(dma->id));
@@ -177,6 +178,8 @@ static irqreturn_t tw6869_irq(int irq, void *dev_id)
 					lost ? "lost" : "recovered");
 			}
 
+			/* Reset the channel after recovery because
+			   in some cases the fields order can be wrong */
 			if (dma_fifo_err || (prev_lost && !lost) ||
 					dma->fld != fld || dma->pb != pb) {
 				spin_lock(&dev->rlock);
