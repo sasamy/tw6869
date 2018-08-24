@@ -167,15 +167,17 @@ static irqreturn_t tw6869_irq(int irq, void *dev_id)
 			unsigned int lost = (losts >> id) & 0x1;
 			unsigned int fld = (flds >> id) & 0x1;
 			unsigned int pb = (pbs >> id) & 0x1;
+			unsigned int prev_lost = dma->lost;
 
+			dma->lost = lost;
 			dma->bad_fmt = (fmts >> id) & 0x1;
 
-			if (dma->lost != lost) {
+			if (prev_lost != lost) {
 				tw_info(dev, "ch%d: signal %s\n", dma->id,
 					lost ? "lost" : "recovered");
 			}
 
-			if (dma_fifo_err || (dma->lost && !lost) ||
+			if (dma_fifo_err || (prev_lost && !lost) ||
 					dma->fld != fld || dma->pb != pb) {
 				spin_lock(&dev->rlock);
 				tw6869_dma_reset(dma);
@@ -184,7 +186,6 @@ static irqreturn_t tw6869_irq(int irq, void *dev_id)
 				dma->err = 0;
 				(*dma->isr)(dma);
 			}
-			dma->lost = lost;
 		}
 		return IRQ_HANDLED;
 	}
