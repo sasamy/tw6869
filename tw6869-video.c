@@ -63,14 +63,14 @@ static void tw6869_vch_dma_ctrl(struct tw6869_dma *dma)
 		(0x5 << 18) | (vch->md_threshold & 0x3FFFF) : 0);
 }
 
-static int to_tw6869_pixformat(unsigned int pixelformat)
+static unsigned int to_tw6869_pixformat(unsigned int pixelformat)
 {
 	switch (pixelformat) {
 	case V4L2_PIX_FMT_UYVY:   return TW_FMT_UYVY;
 	case V4L2_PIX_FMT_YUYV:   return TW_FMT_YUYV;
 	case V4L2_PIX_FMT_RGB565: return TW_FMT_RGB565;
 	default:
-		return -EINVAL;
+		return TW_FMT_UNKNOWN;
 	}
 }
 
@@ -519,7 +519,7 @@ static int tw6869_try_fmt_vid_cap(struct file *file, void *priv,
 	struct tw6869_vch *vch = video_drvdata(file);
 	struct v4l2_pix_format *pix = &f->fmt.pix;
 
-	if (to_tw6869_pixformat(pix->pixelformat) < 0)
+	if (to_tw6869_pixformat(pix->pixelformat) == TW_FMT_UNKNOWN)
 		return -EINVAL;
 
 	tw6869_vch_fill_pix_format(vch, pix);
@@ -714,7 +714,7 @@ static int tw6869_enum_framesizes(struct file *file, void *priv,
 	unsigned int height = (vch->std & V4L2_STD_625_50) ? 576 : 480;
 
 	if (fsize->index > 5 ||
-		to_tw6869_pixformat(fsize->pixel_format) < 0)
+		to_tw6869_pixformat(fsize->pixel_format) == TW_FMT_UNKNOWN)
 		return -EINVAL;
 
 	switch (fsize->index) {
@@ -753,7 +753,7 @@ static int tw6869_enum_frameintervals(struct file *file, void *priv,
 	struct tw6869_vch *vch = video_drvdata(file);
 
 	if (fival->index != 0 ||
-		to_tw6869_pixformat(fival->pixel_format) < 0)
+		to_tw6869_pixformat(fival->pixel_format) == TW_FMT_UNKNOWN)
 		return -EINVAL;
 
 	tw6869_vch_frame_period(vch, &fival->discrete);

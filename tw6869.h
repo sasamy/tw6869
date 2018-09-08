@@ -83,6 +83,7 @@
 #define TW_FMT_UYVY                0
 #define TW_FMT_RGB565              5
 #define TW_FMT_YUYV                6
+#define TW_FMT_UNKNOWN             7
 
 #define TW_VDMA_SG_MODE            0
 #define TW_VDMA_FRAME_MODE         2
