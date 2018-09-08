@@ -89,21 +89,6 @@ static int to_tw6869_std(v4l2_std_id v4l2_std)
 	}
 }
 
-static inline const char *to_std_str(v4l2_std_id v4l2_std)
-{
-	switch (v4l2_std) {
-	case V4L2_STD_NTSC:     return "NTSC";
-	case V4L2_STD_PAL:      return "PAL";
-	case V4L2_STD_SECAM:    return "SECAM";
-	case V4L2_STD_NTSC_443: return "NTSC 443";
-	case V4L2_STD_PAL_M:    return "PAL M";
-	case V4L2_STD_PAL_Nc:   return "PAL Nc";
-	case V4L2_STD_PAL_60:   return "PAL 60";
-	default:
-		return "unknown";
-	}
-}
-
 static v4l2_std_id to_v4l2_std(unsigned int tw_std)
 {
 	switch (tw_std) {
@@ -619,7 +604,7 @@ static int tw6869_querystd(struct file *file, void *priv, v4l2_std_id *std)
 		*std &= to_v4l2_std((ssel >> 4) & 0x07);
 
 	tw_dbg(dma->dev, "vch%u: %s std detected\n",
-		ID2CH(dma->id), to_std_str(*std));
+		ID2CH(dma->id), v4l2_norm_to_name(*std));
 	return 0;
 }
 
@@ -655,7 +640,7 @@ static int tw6869_g_std(struct file *file, void *priv, v4l2_std_id *std)
 	*std = vch->std;
 
 	tw_dbg(vch->dma.dev, "vch%u: %s video standard\n",
-		ID2CH(vch->dma.id), to_std_str(vch->std));
+		ID2CH(vch->dma.id), v4l2_norm_to_name(vch->std));
 	return 0;
 }
 
