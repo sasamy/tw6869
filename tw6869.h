@@ -79,6 +79,8 @@
 #define TW_STD_PAL_M               4
 #define TW_STD_PAL_Nc              5
 #define TW_STD_PAL_60              6
+/* Auto detection */
+#define TW_STD_UNKNOWN             7
 
 #define TW_FMT_UYVY                0
 #define TW_FMT_RGB565              5

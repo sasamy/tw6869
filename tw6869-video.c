@@ -74,7 +74,7 @@ static unsigned int to_tw6869_pixformat(unsigned int pixelformat)
 	}
 }
 
-static int to_tw6869_std(v4l2_std_id v4l2_std)
+static unsigned int to_tw6869_std(v4l2_std_id v4l2_std)
 {
 	switch (v4l2_std) {
 	case V4L2_STD_NTSC:     return TW_STD_NTSC;
@@ -85,7 +85,7 @@ static int to_tw6869_std(v4l2_std_id v4l2_std)
 	case V4L2_STD_PAL_Nc:   return TW_STD_PAL_Nc;
 	case V4L2_STD_PAL_60:   return TW_STD_PAL_60;
 	default:
-		return -EINVAL;
+		return TW_STD_UNKNOWN;
 	}
 }
 
@@ -612,7 +612,7 @@ static int tw6869_s_std(struct file *file, void *priv, v4l2_std_id std)
 	if (vb2_is_busy(&vch->queue))
 		return -EBUSY;
 
-	if (to_tw6869_std(std) < 0)
+	if (to_tw6869_std(std) == TW_STD_UNKNOWN)
 		return -EINVAL;
 
 	vch->std = std;
