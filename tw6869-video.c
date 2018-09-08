@@ -558,18 +558,12 @@ static int tw6869_enum_fmt_vid_cap(struct file *file, void *priv,
 
 	switch (f->index) {
 	case 1:
-		strlcpy(f->description, "4:2:2, packed, YUYV",
-			sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_YUYV;
 		break;
 	case 2:
-		strlcpy(f->description, "16 bpp RGB, le",
-			sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_RGB565;
 		break;
 	default:
-		strlcpy(f->description, "4:2:2, packed, UYVY",
-			sizeof(f->description));
 		f->pixelformat = V4L2_PIX_FMT_UYVY;
 	}
 	f->flags = 0;
