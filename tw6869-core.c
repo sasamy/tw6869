@@ -160,7 +160,7 @@ static irqreturn_t tw6869_irq(int irq, void *dev_id)
 		fifos = (fifos >> DMA_FIFO_OVERFLOW | fifos >> DMA_FIFO_PTR_ERR) & TW_VID;
 		fmts = (ints >> VID_BAD_FMT) & TW_VID;
 
-		ints = (ints | fmts | fifos) & cmd;
+		ints = (ints | fifos) & cmd;
 
 		for_each_set_bit(id, &ints, TW_ID_MAX) {
 			struct tw6869_dma *dma = dev->dma[id];
