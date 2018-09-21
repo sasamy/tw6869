@@ -179,7 +179,7 @@ static irqreturn_t tw6869_irq(int irq, void *dev_id)
 
 			/* Reset the channel after recovery because
 			   in some cases the fields order can be wrong */
-			if (dma_fifo_err || (prev_lost && !dma->lost) ||
+			if ((dma_fifo_err && !dma->bad_fmt) || (prev_lost && !dma->lost) ||
 					dma->fld != fld || dma->pb != pb) {
 				spin_lock(&dev->rlock);
 				tw6869_dma_reset(dma);
