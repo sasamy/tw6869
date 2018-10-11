@@ -857,6 +857,27 @@ static int tw6869_subscribe_event(struct v4l2_fh *fh,
 		return -EINVAL;
 	}
 }
+
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+static int tw6869_g_register(struct file *file, void *priv,
+		struct v4l2_dbg_register *reg)
+{
+	struct tw6869_vch *vch = video_drvdata(file);
+
+	reg->val = tw_read(vch->dma.dev, RADDR(reg->reg & 0x3FF));
+	return 0;
+}
+
+static int tw6869_s_register(struct file *file, void *priv,
+		const struct v4l2_dbg_register *reg)
+{
+	struct tw6869_vch *vch = video_drvdata(file);
+
+	tw_write(vch->dma.dev, RADDR(reg->reg & 0x3FF), reg->val);
+	return 0;
+}
+#endif
+
 /**
  * File operations for the device
  */
@@ -905,6 +926,10 @@ static const struct v4l2_ioctl_ops tw6869_ioctl_ops = {
 	.vidioc_log_status = v4l2_ctrl_log_status,
 	.vidioc_subscribe_event = tw6869_subscribe_event,
 	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+	.vidioc_g_register = tw6869_g_register,
+	.vidioc_s_register = tw6869_s_register,
+#endif
 };
 
 static const struct v4l2_file_operations tw6869_fops = {
