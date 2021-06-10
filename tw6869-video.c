@@ -1009,7 +1009,7 @@ static int tw6869_vch_register(struct tw6869_vch *vch)
 	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
 	vdev->tvnorms = V4L2_STD_ALL;
 	video_set_drvdata(vdev, vch);
-	ret = video_register_device(vdev, VFL_TYPE_GRABBER, -1);
+	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
 	if (ret == 0)
 		return 0;
 
