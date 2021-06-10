@@ -127,17 +127,6 @@ static struct snd_kcontrol_new tw6869_capture_volume = {
 /**
  * PCM Interface
  */
-static int tw6869_pcm_hw_params(struct snd_pcm_substream *ss,
-		struct snd_pcm_hw_params *hw_params)
-{
-	return snd_pcm_lib_malloc_pages(ss, params_buffer_bytes(hw_params));
-}
-
-static int tw6869_pcm_hw_free(struct snd_pcm_substream *ss)
-{
-	return snd_pcm_lib_free_pages(ss);
-}
-
 static const struct snd_pcm_hardware tw6869_capture_hw = {
 	.info			= (SNDRV_PCM_INFO_MMAP |
 				   SNDRV_PCM_INFO_INTERLEAVED |
@@ -283,8 +272,6 @@ static struct snd_pcm_ops tw6869_pcm_ops = {
 	.open = tw6869_pcm_open,
 	.close = tw6869_pcm_close,
 	.ioctl = snd_pcm_lib_ioctl,
-	.hw_params = tw6869_pcm_hw_params,
-	.hw_free = tw6869_pcm_hw_free,
 	.prepare = tw6869_pcm_prepare,
 	.trigger = tw6869_pcm_trigger,
 	.pointer = tw6869_pcm_pointer,
@@ -330,14 +317,11 @@ static int tw6869_ach_register(struct tw6869_ach *ach)
 	pcm->info_flags = 0;
 	snprintf(pcm->name, sizeof(pcm->name), "%s ADC", card->shortname);
 
-	ret = snd_pcm_lib_preallocate_pages_for_all(pcm,
+	snd_pcm_set_managed_buffer_all(pcm,
 				SNDRV_DMA_TYPE_DEV,
-				snd_dma_pci_data(pdev),
+				&pdev->dev,
 				TW_PAGE_SIZE * TW_APAGE_MAX,
 				TW_PAGE_SIZE * TW_APAGE_MAX);
-	if (ret < 0)
-		goto snd_error;
-
 	ret = snd_card_register(card);
 	if (ret == 0)
 		return 0;
